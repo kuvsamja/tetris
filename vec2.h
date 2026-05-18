@@ -12,8 +12,8 @@ class vec2 {
     vec2() : e{0,0} {}
     vec2(T e0, T e1) : e{e0, e1} {}
 
-    T x() const { return e[0]; }
-    T y() const { return e[1]; }
+    T& x() { return e[0]; }
+    T& y() { return e[1]; }
 
     vec2 operator-() const { return vec2(-e[0], -e[1]); }
     T operator[](int i) const { return e[i]; }
