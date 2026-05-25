@@ -170,7 +170,7 @@ class Grid {
 
         if(timer % 30 == 0) piece_position.x()++;
 
-        for(auto block : current_piece.points) {
+        for(auto block : current_piece.points) { // matija rewrite ovaj block i napravi collision check8ing za sve
             if(block.x() + piece_position.x() == 19
                 || grid[(block.x()+1)+piece_position.x()][block.y()+piece_position.y()].is_occupied == 1) {
 
