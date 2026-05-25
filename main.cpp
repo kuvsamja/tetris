@@ -36,8 +36,8 @@ class Piece {
 
 struct Block {
     uint8_t is_occupied = 0; // 0 - not occupied
-                          // 1 - occupied by a normal block
-                          // 2 - occupied by a currently active piece
+                             // 1 - occupied by a normal block
+                             // 2 - occupied by a currently active piece
 
 };
 
@@ -48,7 +48,6 @@ class Grid {
     Piece next_piece;
     point2<int> piece_position;
     int piece_fall_timer = 10; // time it takes for a piece to descend 1 block in ms
-    int input_cooldown_time = 100; // time it takes to move a piece again after holding a key in ms
     uint64_t timer = 0;
 
   public:
@@ -106,6 +105,8 @@ class Grid {
         curs_set(0);
         next_piece = getRandomPiece();
         current_piece = getRandomPiece();
+        piece_position.x() = 0;
+        piece_position.y() = 4;
     }
 
 
@@ -116,13 +117,13 @@ class Grid {
             for(auto block : row) {
                 switch(block.is_occupied) {
                     case 0:
-                        printw("--");
+                        printw(" - ");
                         break;
                     case 1:
-                        printw("++");
+                        printw("[ ]");
                         break;
                     case 2:
-                        printw("##");
+                        printw("[-]");
                         break;
                 }
             }
@@ -140,6 +141,22 @@ class Grid {
         // next_piece = getRandomPiece();
         timer++;
 
+
+        switch(pressed_key) {
+            case KEY_LEFT:
+                piece_position.y()--;
+                break;
+            case KEY_RIGHT:
+                piece_position.y()++;
+                break;
+            case KEY_DOWN:
+                piece_position.x()++;
+                break;
+            case 'x':
+                current_piece.rotateClockwise();
+        }
+
+
         for(auto& row : grid) {
             for(auto& block : row) {
                 if(block.is_occupied == 2) block.is_occupied = 0;
@@ -151,12 +168,20 @@ class Grid {
             grid[block.x() + piece_position.x()][block.y() + piece_position.y()].is_occupied = 2;
         }
 
-        if(timer % 30 == 0) {
-            current_piece.rotateClockwise();
+        if(timer % 30 == 0) piece_position.x()++;
+
+        for(auto block : current_piece.points) {
+            if(block.x() + piece_position.x() == 19
+                || grid[(block.x()+1)+piece_position.x()][block.y()+piece_position.y()].is_occupied == 1) {
+
+                for(auto block1 : current_piece.points)
+                    grid[block1.x() + piece_position.x()][block1.y() + piece_position.y()].is_occupied = 1;
+                piece_position = {0, 4};
+                current_piece = getRandomPiece();
+                break;
+            }
         }
-        if(timer % 180 == 0) {
-            current_piece = getRandomPiece();
-        }
+
 
     }
 
@@ -168,7 +193,6 @@ int main() {
 
     Grid grid;
     grid.gameInit();
-    bool inputs[6] {};
 
     bool running = true;
     while(running) {
