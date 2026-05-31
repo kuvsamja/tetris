@@ -6,19 +6,23 @@
 
 class Piece {
   public:
-    std::vector<point2<int>> points;
+    std::vector<point2<int>> blocks;
     point2<double> rotation_point;
+    point2<int> position;
+    int color;
 
     Piece() {}
 
-    Piece(std::vector<point2<int>> points, point2<double> rotation_point) {
-        this->points = points;
+    Piece(std::vector<point2<int>> blocks, point2<double> rotation_point, point2<int> position, int color) {
+        this->blocks = blocks;
         this->rotation_point = rotation_point;
+        this->position = position;
+        this->color = color;
     }
 
-    Piece* rotateClockwise() {  // rotates the points vector around the rotation_point; returns pointer to itself
+    Piece* rotateClockwise() {  // rotates the blocks vector around the rotation_point; returns pointer to itself
         std::vector<point2<int>> rotated_points;
-        for(auto point : points) {
+        for(auto point : blocks) {
             auto new_point = static_cast<point2<double>>(point) - rotation_point;
             new_point = point2<double>{-new_point.y(), new_point.x()};
             new_point += rotation_point;
@@ -26,13 +30,14 @@ class Piece {
             rotated_points.push_back(static_cast<vec2<int>>(new_point));
         }
 
-        this->points = rotated_points;
+        this->blocks = rotated_points;
 
         return this;
     }
 
 
 };
+
 
 struct Block {
     uint8_t is_occupied = 0; // 0 - not occupied
@@ -46,9 +51,8 @@ class Grid {
     std::vector<std::vector<Block>> grid{20, std::vector<Block>(10, {0})};
     Piece current_piece;
     Piece next_piece;
-    point2<int> piece_position;
     int piece_fall_timer = 10; // time it takes for a piece to descend 1 block in ms
-    uint64_t timer = 0;
+    uint64_t global_timer = 0;
 
   public:
     Grid() {}
@@ -60,37 +64,51 @@ class Grid {
             case 0:
                 return Piece(
                     std::vector<point2<int>>{{0, 1}, {1, 1}, {2, 1}, {3, 1}},
-                    point2<double>{1.5, 1.5}
+                    point2<double>{1.5, 1.5},
+                    point2<int>{0, 4},
+                    1
                 );
             case 1:
                 return Piece(
                     std::vector<point2<int>>{{0, 0}, {0, 1}, {1, 1}, {2, 1}},
-                    point2<double>{1, 1}
+                    point2<double>{1, 1},
+                    point2<int>{0, 4},
+                    1
                 );
             case 2:
                 return Piece(
                     std::vector<point2<int>>{{0, 1}, {1, 1}, {2, 1}, {2, 0}},
-                    point2<double>{1, 1}
+                    point2<double>{1, 1},
+                    point2<int> {0, 4},
+                    1
                 );
             case 3:
                 return Piece(
                     std::vector<point2<int>>{{0, 0}, {0, 1}, {1, 1}, {1, 0}},
-                    point2<double>{0.5, 0.5}
+                    point2<double>{0.5, 0.5},
+                    point2<int> {0, 4},
+                    1
                 );
             case 4:
                 return Piece(
                     std::vector<point2<int>>{{0, 1}, {1, 0}, {1, 1}, {2, 0}},
-                    point2<double>{1, 1}
+                    point2<double>{1, 1},
+                    point2<int> {0, 4},
+                    1
                 );
             case 5:
                 return Piece(
                     std::vector<point2<int>>{{0, 1}, {1, 0}, {1, 1}, {2, 1}},
-                    point2<double>{1, 1}
+                    point2<double>{1, 1},
+                    point2<int> {0, 4},
+                    1
                 );
             case 6:
                 return Piece(
                     std::vector<point2<int>>{{0, 0}, {1, 0}, {1, 1}, {2, 1}},
-                    point2<double>{1, 1}
+                    point2<double>{1, 1},
+                    point2<int> {0, 4},
+                    1
                 );
         }
         exit(-1);
@@ -104,9 +122,8 @@ class Grid {
         nodelay(stdscr, TRUE);
         curs_set(0);
         next_piece = getRandomPiece();
-        current_piece = getRandomPiece();
-        piece_position.x() = 0;
-        piece_position.y() = 4;
+        current_piece = next_piece;
+        next_piece = getRandomPiece();
     }
 
 
@@ -134,28 +151,77 @@ class Grid {
     }
 
 
+    bool pieceOverlapping(Piece piece) {
+        for(auto block : piece.blocks) {
+            point2<int> block_position = {
+                block.x() + piece.position.x(),
+                block.y() + piece.position.y(),
+            };
+            if(
+                block_position.x() >= 20
+                || block_position.x() < 0
+                || block_position.y() < 0
+                || block_position.y() >= 10
+            ) return 1;
 
+            if(grid[block_position.x()][block_position.y()].is_occupied == 1) {
+                return 1;
+            }
+        }
+        return 0;
+    }
 
-    void update(int pressed_key) {
-        // current_piece = next_piece;
-        // next_piece = getRandomPiece();
-        timer++;
+    void freezePiece() {
+        for(auto block : current_piece.blocks) {
+            grid[block.x() + current_piece.position.x()][block.y() + current_piece.position.y()].is_occupied = 1;
+        }
+    }
+
+    /* freezes the current piece and makes a new one */
+    void setUpNewPiece() {
+        freezePiece();
+        current_piece = getRandomPiece();
+        current_piece.position = point2<int>(0, 4);
+        
+    }
+
+    /* moves the active piece, returns 1 if it should freeze */
+    bool move(int pressed_key) {
+        bool falls_down = 0;
+        if(global_timer % 30 == 0) falls_down = 1;
+
+        Piece test_piece = current_piece;
+        bool stop = 0;
+        if(falls_down) {
+            test_piece.position.x()++;
+            if(pieceOverlapping(test_piece)) return 1;
+            current_piece = test_piece;
+            
+        }
+
 
 
         switch(pressed_key) {
-            case KEY_LEFT:
-                piece_position.y()--;
-                break;
-            case KEY_RIGHT:
-                piece_position.y()++;
-                break;
-            case KEY_DOWN:
-                piece_position.x()++;
-                break;
-            case 'x':
-                current_piece.rotateClockwise();
+          case 'x':
+            test_piece.rotateClockwise(); break;
+          case KEY_LEFT:
+            test_piece.position.y()--; break;
+          case KEY_RIGHT:
+            test_piece.position.y()++; break;
+          case KEY_DOWN:
+            test_piece.position.x()++; break;
         }
 
+        if(pieceOverlapping(test_piece)) return 0;
+        current_piece = test_piece;
+            
+        return 0;
+        
+    }
+
+
+    void update(int pressed_key) {
+        global_timer++;
 
         for(auto& row : grid) {
             for(auto& block : row) {
@@ -164,24 +230,13 @@ class Grid {
         }
 
 
-        for(auto block : current_piece.points) {
-            grid[block.x() + piece_position.x()][block.y() + piece_position.y()].is_occupied = 2;
+        for(auto block : current_piece.blocks) {
+            grid[block.x() + current_piece.position.x()][block.y() + current_piece.position.y()].is_occupied = 2;
         }
 
-        if(timer % 30 == 0) piece_position.x()++;
 
-        for(auto block : current_piece.points) { // matija rewrite ovaj block i napravi collision check8ing za sve
-            if(block.x() + piece_position.x() == 19
-                || grid[(block.x()+1)+piece_position.x()][block.y()+piece_position.y()].is_occupied == 1) {
-
-                for(auto block1 : current_piece.points)
-                    grid[block1.x() + piece_position.x()][block1.y() + piece_position.y()].is_occupied = 1;
-                piece_position = {0, 4};
-                current_piece = getRandomPiece();
-                break;
-            }
-        }
-
+        int freeze = move(pressed_key);
+        if(freeze) setUpNewPiece();
 
     }
 
