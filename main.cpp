@@ -1,5 +1,7 @@
 #include <bits/stdc++.h>
 #include <ncurses.h>
+#include <chrono>
+#include <thread>
 #include "vec2.h"
 
 
@@ -26,7 +28,7 @@ class Piece {
             auto new_point = static_cast<point2<double>>(point) - rotation_point;
             new_point = point2<double>{-new_point.y(), new_point.x()};
             new_point += rotation_point;
-            
+
             rotated_points.push_back(static_cast<vec2<int>>(new_point));
         }
 
@@ -182,7 +184,37 @@ class Grid {
         freezePiece();
         current_piece = getRandomPiece();
         current_piece.position = point2<int>(0, 4);
-        
+
+    }
+
+    void clearLine(int x) {
+        for(auto& block : grid[x]) if(block.is_occupied == 1) block.is_occupied = 0;
+    }
+
+    void pushDown(int x) {
+        for(int i = x-1; i >= 0; i--) {
+            clearLine(i+1);
+            grid[i+1] = grid[i]; // TODO: check if blocks are active or not 
+        }
+
+
+    }
+
+    /* clears the board up and return the number of rows cleared */
+    int clearUp() {
+        for(int i = 0; i < grid.size(); i++) {
+            bool should_clear = 1;
+            for(auto& block : grid[i]) {
+                if(block.is_occupied != 1) {should_clear = 0; break;}
+            }
+
+            if(should_clear) pushDown(i);
+
+
+        }
+
+
+        return 0;
     }
 
     /* moves the active piece, returns 1 if it should freeze */
@@ -196,7 +228,7 @@ class Grid {
             test_piece.position.x()++;
             if(pieceOverlapping(test_piece)) return 1;
             current_piece = test_piece;
-            
+
         }
 
 
@@ -214,9 +246,9 @@ class Grid {
 
         if(pieceOverlapping(test_piece)) return 0;
         current_piece = test_piece;
-            
+
         return 0;
-        
+
     }
 
 
@@ -238,6 +270,8 @@ class Grid {
         int freeze = move(pressed_key);
         if(freeze) setUpNewPiece();
 
+        clearUp();
+
     }
 
 };
@@ -255,9 +289,9 @@ int main() {
         grid.update(pressed_key);
         grid.render();
 
-        usleep(16000);
+        std::this_thread::sleep_for(std::chrono::microseconds(16000));
     }
-    
+
 
     endwin();
     return 0;
