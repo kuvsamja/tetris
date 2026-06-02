@@ -64,7 +64,7 @@ class Grid {
 
 
     Piece getRandomPiece() {
-        int piece = rand() % 1;
+        int piece = rand() % 7;
         switch(piece) {
             case 0:
                 return Piece(
@@ -126,8 +126,8 @@ class Grid {
         keypad(stdscr, TRUE);
         nodelay(stdscr, TRUE);
         curs_set(0);
-        start_color();
-        init_pair(1, COLOR_RED, COLOR_BLACK);
+        // start_color();
+        // init_pair(1, COLOR_RED, COLOR_BLACK);
 
         next_piece = getRandomPiece();
         current_piece = next_piece;
