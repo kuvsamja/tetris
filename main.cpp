@@ -64,7 +64,7 @@ class Grid {
 
 
     Piece getRandomPiece() {
-        int piece = rand() % 7;
+        int piece = rand() % 1;
         switch(piece) {
             case 0:
                 return Piece(
@@ -126,6 +126,9 @@ class Grid {
         keypad(stdscr, TRUE);
         nodelay(stdscr, TRUE);
         curs_set(0);
+        start_color();
+        init_pair(1, COLOR_RED, COLOR_BLACK);
+
         next_piece = getRandomPiece();
         current_piece = next_piece;
         next_piece = getRandomPiece();
@@ -133,26 +136,21 @@ class Grid {
 
 
     void render() {
-        clear();
-
+        erase();
+        std::string buf;
+        buf.reserve(20 * 10 * 3 + 20);
         for(auto row : grid) {
             for(auto block : row) {
                 switch(block.is_occupied) {
-                    case 0:
-                        printw(" - ");
-                        break;
-                    case 1:
-                        printw("[ ]");
-                        break;
-                    case 2:
-                        printw("[-]");
-                        break;
+                case 0: buf += " - "; break;
+                case 1: buf += "[ ]"; break;
+                case 2: buf += "[-]"; break;
                 }
             }
-            printw("\n");
+            buf += '\n';
         }
-
-        printw("%d", score);
+        addstr(buf.c_str());
+        printw("%llu", score);
         refresh();
     }
 
@@ -197,7 +195,7 @@ class Grid {
 
     void pushDown(int x) {
         for(int i = x-1; i >= 0; i--) {
-            clearLine(i+1);
+            // clearLine(i+1);
             grid[i+1] = grid[i]; // TODO: check if blocks are active or not 
         }
 
@@ -215,6 +213,7 @@ class Grid {
 
             if(should_clear) {
                 pushDown(i);
+                i--;
                 row_num++;
             }
 
