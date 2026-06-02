@@ -55,6 +55,9 @@ class Grid {
     Piece next_piece;
     int piece_fall_timer = 10; // time it takes for a piece to descend 1 block in ms
     uint64_t global_timer = 0;
+    uint64_t score = 0;
+    uint64_t lines_cleared = 0;
+    uint64_t level = 1;
 
   public:
     Grid() {}
@@ -149,6 +152,7 @@ class Grid {
             printw("\n");
         }
 
+        printw("%d", score);
         refresh();
     }
 
@@ -202,25 +206,30 @@ class Grid {
 
     /* clears the board up and return the number of rows cleared */
     int clearUp() {
+        int row_num = 0;
         for(int i = 0; i < grid.size(); i++) {
             bool should_clear = 1;
             for(auto& block : grid[i]) {
                 if(block.is_occupied != 1) {should_clear = 0; break;}
             }
 
-            if(should_clear) pushDown(i);
+            if(should_clear) {
+                pushDown(i);
+                row_num++;
+            }
 
 
         }
 
 
-        return 0;
+        return row_num;
     }
 
     /* moves the active piece, returns 1 if it should freeze */
     bool move(int pressed_key) {
         bool falls_down = 0;
-        if(global_timer % 30 == 0) falls_down = 1;
+        double G = pow((0.8 - (level-1) * 0.007), level-1);
+        if(global_timer % (int)(60 * G) == 0) falls_down = 1;
 
         Piece test_piece = current_piece;
         bool stop = 0;
@@ -270,10 +279,21 @@ class Grid {
         int freeze = move(pressed_key);
         if(freeze) setUpNewPiece();
 
-        clearUp();
+        int lines_cleared_curr = clearUp();
+        lines_cleared += lines_cleared_curr;
 
+        level = lines_cleared / 10 + 1;
+
+        switch(lines_cleared_curr) {
+            case 0: break;
+            case 1: score += 40 * (level+1); break;
+            case 2: score += 100 * (level+1); break;
+            case 3: score += 300 * (level+1); break;
+            case 4: score += 1200 * (level+1); break;
+        }
+        
+        
     }
-
 };
 
 
