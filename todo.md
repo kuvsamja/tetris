@@ -1,0 +1,8 @@
+- [ ] improve performance by reducing pow() calls
+- [ ] wall kicks
+- [ ] colors
+- [ ] title menu
+- [ ] game overlay
+- [ ] multiplayer
+- [ ] kitty input protocol
+- [ ] add slop

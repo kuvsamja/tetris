@@ -45,6 +45,7 @@ struct Block {
     uint8_t is_occupied = 0; // 0 - not occupied
                              // 1 - occupied by a normal block
                              // 2 - occupied by a currently active piece
+    uint8_t color = 0;
 
 };
 
@@ -65,55 +66,56 @@ class Grid {
 
     Piece getRandomPiece() {
         int piece = rand() % 7;
+        int color = rand() % 6 + 30;
         switch(piece) {
             case 0:
                 return Piece(
                     std::vector<point2<int>>{{0, 1}, {1, 1}, {2, 1}, {3, 1}},
                     point2<double>{1.5, 1.5},
                     point2<int>{0, 4},
-                    1
+                    color
                 );
             case 1:
                 return Piece(
                     std::vector<point2<int>>{{0, 0}, {0, 1}, {1, 1}, {2, 1}},
                     point2<double>{1, 1},
                     point2<int>{0, 4},
-                    1
+                    color
                 );
             case 2:
                 return Piece(
                     std::vector<point2<int>>{{0, 1}, {1, 1}, {2, 1}, {2, 0}},
                     point2<double>{1, 1},
                     point2<int> {0, 4},
-                    1
+                    color
                 );
             case 3:
                 return Piece(
                     std::vector<point2<int>>{{0, 0}, {0, 1}, {1, 1}, {1, 0}},
                     point2<double>{0.5, 0.5},
                     point2<int> {0, 4},
-                    1
+                    color
                 );
             case 4:
                 return Piece(
                     std::vector<point2<int>>{{0, 1}, {1, 0}, {1, 1}, {2, 0}},
                     point2<double>{1, 1},
                     point2<int> {0, 4},
-                    1
+                    color
                 );
             case 5:
                 return Piece(
                     std::vector<point2<int>>{{0, 1}, {1, 0}, {1, 1}, {2, 1}},
                     point2<double>{1, 1},
                     point2<int> {0, 4},
-                    1
+                    color
                 );
             case 6:
                 return Piece(
                     std::vector<point2<int>>{{0, 0}, {1, 0}, {1, 1}, {2, 1}},
                     point2<double>{1, 1},
                     point2<int> {0, 4},
-                    1
+                    color
                 );
         }
         exit(-1);
@@ -126,12 +128,15 @@ class Grid {
         keypad(stdscr, TRUE);
         nodelay(stdscr, TRUE);
         curs_set(0);
-        // start_color();
-        // init_pair(1, COLOR_RED, COLOR_BLACK);
 
         next_piece = getRandomPiece();
         current_piece = next_piece;
         next_piece = getRandomPiece();
+    }
+    
+
+    std::string color(int color_code) {
+        return static_cast<std::string>("\033[38;5;") + std::to_string(color_code) + "m";
     }
 
 
@@ -141,11 +146,13 @@ class Grid {
         buf.reserve(20 * 10 * 3 + 20);
         for(auto row : grid) {
             for(auto block : row) {
+                // buf += color(block.color);
                 switch(block.is_occupied) {
-                case 0: buf += " - "; break;
-                case 1: buf += "[ ]"; break;
-                case 2: buf += "[-]"; break;
+                    case 0: buf += " - "; break;
+                    case 1: buf += "[ ]"; break;
+                    case 2: buf += "[-]"; break;
                 }
+
             }
             buf += '\n';
         }
@@ -272,6 +279,7 @@ class Grid {
 
         for(auto block : current_piece.blocks) {
             grid[block.x() + current_piece.position.x()][block.y() + current_piece.position.y()].is_occupied = 2;
+            grid[block.x() + current_piece.position.x()][block.y() + current_piece.position.y()].color = current_piece.color;
         }
 
 
