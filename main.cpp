@@ -1,5 +1,5 @@
 #include <bits/stdc++.h>
-#include <curses.h>
+#include <ncurses.h>
 #include <chrono>
 #include <thread>
 #include "vec2.h"
