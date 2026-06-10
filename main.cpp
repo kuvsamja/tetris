@@ -12,17 +12,21 @@ class Piece {
     point2<double> rotation_point;
     point2<int> position;
     int color;
+    int state;
+    int piece_index;
 
     Piece() {}
 
-    Piece(std::vector<point2<int>> blocks, point2<double> rotation_point, point2<int> position, int color) {
+    Piece(std::vector<point2<int>> blocks, point2<double> rotation_point, point2<int> position, int color, int piece_index) {
         this->blocks = blocks;
         this->rotation_point = rotation_point;
         this->position = position;
         this->color = color;
+        this->piece_index = piece_index;
+        state = 0;
     }
 
-    Piece* rotateClockwise() {  // rotates the blocks vector around the rotation_point; returns pointer to itself
+    Piece* rotateClockwise() {  // rotates the blocks vector clockwise around the rotation_point; returns pointer to itself
         std::vector<point2<int>> rotated_points;
         for(auto point : blocks) {
             auto new_point = static_cast<point2<double>>(point) - rotation_point;
@@ -31,15 +35,60 @@ class Piece {
 
             rotated_points.push_back(static_cast<vec2<int>>(new_point));
         }
+        state += 1;
+        state %= 4;
 
         this->blocks = rotated_points;
 
         return this;
     }
 
+    Piece* rotateCounterClockwise() {  // rotates the blocks vector counter-clockwise around the rotation_point; returns pointer to itself
+        std::vector<point2<int>> rotated_points;
+        for(auto point : blocks) {
+            auto new_point = static_cast<point2<double>>(point) - rotation_point;
+            new_point = point2<double>{new_point.y(), -new_point.x()};
+            new_point += rotation_point;
 
+            rotated_points.push_back(static_cast<vec2<int>>(new_point));
+        }
+        state += 3;
+        state %= 4;
+
+        this->blocks = rotated_points;
+
+        return this;
+    }
 };
 
+struct Offset {
+    int x;
+    int y;
+};
+
+class SRSTable {
+  public:
+    const Offset Standard[2][4][5] = {  // [direction][state][kick test number]
+        {   {{ 0, 0}, {-1, 0}, {-1, 1}, {0,-2}, {-1,-2}},
+            {{ 0, 0}, { 1, 0}, { 1,-1}, {0, 2}, { 1, 2}},
+            {{ 0, 0}, { 1, 0}, { 1, 1}, {0,-2}, { 1,-2}},
+            {{ 0, 0}, {-1, 0}, {-1,-1}, {0, 2}, {-1, 2}}},
+        {   {{ 0, 0}, { 1, 0}, { 1,-1}, {0, 2}, { 1, 2}},
+            {{ 0, 0}, {-1, 0}, {-1, 1}, {0,-2}, {-1,-2}},
+            {{ 0, 0}, {-1, 0}, {-1,-1}, {0, 2}, {-1, 2}},
+            {{ 0, 0}, { 1, 0}, { 1, 1}, {0,-2}, { 1,-2}}}
+    };
+    const Offset I[2][4][5] = {
+        {   {{ 0, 0}, {-2, 0}, { 1, 0}, {-2,-1}, { 1, 2}},
+            {{ 0, 0}, {-1, 0}, { 2, 0}, {-1, 2}, { 2,-1}},
+            {{ 0, 0}, { 2, 0}, {-1, 0}, { 2, 1}, {-1,-2}},
+            {{ 0, 0}, { 1, 0}, {-2, 0}, { 1,-2}, {-2, 1}}},
+        {   {{ 0, 0}, { 2, 0}, {-1, 0}, { 2, 1}, {-1,-2}},
+            {{ 0, 0}, { 1, 0}, {-2, 0}, { 1,-2}, {-2, 1}},
+            {{ 0, 0}, {-2, 0}, { 1, 0}, {-2,-1}, { 1, 2}},
+            {{ 0, 0}, {-1, 0}, { 2, 0}, {-1, 2}, { 2,-1}}}
+    };
+};
 
 struct Block {
     uint8_t is_occupied = 0; // 0 - not occupied
@@ -60,9 +109,47 @@ class Grid {
     uint64_t lines_cleared = 0;
     uint64_t level = 1;
 
+
   public:
     Grid() {}
 
+
+    void rotateWithWallKicks(int pressed_key) {
+        bool direction = (pressed_key == 'x') ? 1 : 0; // 1 for clockwise, 0 for counter-clockwise
+        Piece test_piece = current_piece;
+        int prev_state = test_piece.state;
+        if(direction) // rotation in direction of pressed key
+            test_piece.rotateClockwise();
+        else
+            test_piece.rotateCounterClockwise();
+        if(!pieceOverlapping(test_piece)) {
+            current_piece = test_piece;
+            return;
+        }
+        SRSTable srs;
+        auto srs_table = (current_piece.piece_index == 0) ? 
+            srs.I : srs.Standard;
+        for(int i = 0; i < 5; i++) { // checks all 5 possible wall kick offsets
+            test_piece.position.y() += srs_table[direction][prev_state][i].y;
+            test_piece.position.x() += srs_table[direction][prev_state][i].x;
+            if(!pieceOverlapping(test_piece)) {
+                current_piece = test_piece;
+                return;
+            }
+            test_piece.position.y() -= srs_table[direction][prev_state][i].y;
+            test_piece.position.x() -= srs_table[direction][prev_state][i].x;
+        }
+    }
+
+    enum PieceIndex {
+        I,
+        J,
+        L,
+        O,
+        S,
+        T,
+        Z
+    };
 
     Piece getRandomPiece() {
         int piece = rand() % 7;
@@ -73,49 +160,56 @@ class Grid {
                     std::vector<point2<int>>{{0, 1}, {1, 1}, {2, 1}, {3, 1}},
                     point2<double>{1.5, 1.5},
                     point2<int>{0, 4},
-                    color
+                    color,
+                    piece
                 );
             case 1:
                 return Piece(
                     std::vector<point2<int>>{{0, 0}, {0, 1}, {1, 1}, {2, 1}},
                     point2<double>{1, 1},
                     point2<int>{0, 4},
-                    color
+                    color,
+                    piece
                 );
             case 2:
                 return Piece(
                     std::vector<point2<int>>{{0, 1}, {1, 1}, {2, 1}, {2, 0}},
                     point2<double>{1, 1},
                     point2<int> {0, 4},
-                    color
+                    color,
+                    piece
                 );
             case 3:
                 return Piece(
                     std::vector<point2<int>>{{0, 0}, {0, 1}, {1, 1}, {1, 0}},
                     point2<double>{0.5, 0.5},
                     point2<int> {0, 4},
-                    color
+                    color,
+                    piece
                 );
             case 4:
                 return Piece(
                     std::vector<point2<int>>{{0, 1}, {1, 0}, {1, 1}, {2, 0}},
                     point2<double>{1, 1},
                     point2<int> {0, 4},
-                    color
+                    color,
+                    piece
                 );
             case 5:
                 return Piece(
                     std::vector<point2<int>>{{0, 1}, {1, 0}, {1, 1}, {2, 1}},
                     point2<double>{1, 1},
                     point2<int> {0, 4},
-                    color
+                    color,
+                    piece
                 );
             case 6:
                 return Piece(
                     std::vector<point2<int>>{{0, 0}, {1, 0}, {1, 1}, {2, 1}},
                     point2<double>{1, 1},
                     point2<int> {0, 4},
-                    color
+                    color,
+                    piece
                 );
         }
         exit(-1);
@@ -250,7 +344,9 @@ class Grid {
 
         switch(pressed_key) {
           case 'x':
-            test_piece.rotateClockwise(); break;
+            rotateWithWallKicks(pressed_key); break;
+          case 'z':
+            rotateWithWallKicks(pressed_key); break;
           case KEY_LEFT:
             test_piece.position.y()--; break;
           case KEY_RIGHT:
@@ -261,9 +357,8 @@ class Grid {
 
         if(pieceOverlapping(test_piece)) return 0;
         current_piece = test_piece;
-
+        
         return 0;
-
     }
 
 
